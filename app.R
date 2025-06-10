@@ -1,192 +1,357 @@
-# Load packages used by the app. Install missing packages, if needed.
 library(shiny)
-library(bslib)
-library(thematic)
 library(tidyverse)
-library(gitlink)
+library(lubridate)
+library(plotly)
+library(shinythemes)
+library(DT)
 
-# Read data from a CSV file and perform data preprocessing
-expansions <- read_csv("data/expansions.csv") |>
-  mutate(evaluation = factor(evaluation, levels = c("None", "A", "B")),
-         propensity = factor(propensity, levels = c("Good", "Average", "Poor")))
+# 2. Load CSV datasets
+insider_trades  <- read_csv("data/insiderTrades.csv")
+stock_prices    <- read_csv("data/stockPrices.csv")
+congress_trades <- read_csv("data/congressTrades.csv")
 
-# Compute expansion rates by trial and group
-expansion_groups <- expansions |>
-  group_by(industry, propensity, contract, evaluation) |>
-  summarize(success_rate = round(mean(outcome == "Won")* 100),
-            avg_amount = round(mean(amount)),
-            avg_days = round(mean(days)),
-            n = n()) |>
-  ungroup()
-
-# Compute expansion rates by trial
-overall_rates <- expansions |>
-  group_by(evaluation) |>
-  summarise(rate = round(mean(outcome == "Won"), 2))
-
-# Restructure expansion rates by trial as a vector
-rates <- structure(overall_rates$rate, names = overall_rates$evaluation)
-
-# Define lists for propensity, contract and industry choices
-propensities <- c("Good", "Average", "Poor")
-contracts <- c("Monthly", "Annual")
-industries <- c("Academia",
-                "Energy",
-                "Finance",
-                "Government",
-                "Healthcare",
-                "Insurance",
-                "Manufacturing",
-                "Non-Profit",
-                "Pharmaceuticals",
-                "Technology")
-
-# Set the default theme for ggplot2 plots
-ggplot2::theme_set(ggplot2::theme_minimal())
-
-# Apply the CSS used by the Shiny app to the ggplot2 plots
-thematic_shiny()
-
-
-# Define the Shiny UI layout
-ui <- page_sidebar(
+# 3. Define UI
+ui <- navbarPage(
+  title = "Insider Trading Dashboard",
+  theme = shinytheme("flatly"),
   
-  # Set CSS theme
-  theme = bs_theme(bootswatch = "darkly",
-                   bg = "#222222",
-                   fg = "#86C7ED",
-                   success ="#86C7ED"),
+  # -----------------
+  # Tab 1: TRENDS
+  # -----------------
+  tabPanel(
+    "Trends",
+    
+    # Narrative (full width)
+    fluidRow(
+      column(
+        width = 12,
+        wellPanel(
+          h4("Story: Which Years & Sectors Led the Way?"),
+          p(HTML(
+            paste0(
+              "From our sample data, <strong>2020</strong> saw a notable healthcare‐sector buy (JNJ), ",
+              "but beginning in <strong>2021</strong>, technology dominates the insider‐trading landscape. ",
+              "By <strong>2022</strong>, tech insiders (AAPL) were both buying and selling heavily, ",
+              "and <strong>2023</strong> continued with a large MSFT buy. Technology clearly drives recent activity."
+            )
+          ))
+        )
+      )
+    ),
+    # Spacer
+    div(style = "height: 20px;"),
+    
+    # Two side‐by‐side plots (each in a wellPanel)
+    fluidRow(
+      column(
+        width = 6,
+        wellPanel(
+          h5("Total Insider Trades by Year"),
+          plotlyOutput("bar_cases_by_year", height = "300px")
+        )
+      ),
+      column(
+        width = 6,
+        wellPanel(
+          h5("Insider Trades Over Time (by Sector)"),
+          plotlyOutput("line_cases_by_sector", height = "300px")
+        )
+      )
+    ),
+    # Spacer before footer
+    div(style = "height: 40px;"),
+    # Footer text (not fixed; just below content)
+    div(
+      class = "footer-text",
+      p(
+        "Sources: insiderTrades.csv · SEC EDGAR",
+        style = "font-size: 12px; color: #777; text-align: center; margin-bottom: 20px;"
+      )
+    )
+  ),
   
-  # Add title
-  title = "Effectiveness of DemoCo App Free Trial by Customer Segment",
   
-  # Add sidebar elements
-  sidebar = sidebar(title = "Select a segment of data to view",
-                    class ="bg-secondary",
-                    selectInput("industry", "Select industries", choices = industries, selected = "", multiple  = TRUE),
-                    selectInput("propensity", "Select propensities to buy", choices = propensities, selected = "", multiple  = TRUE),
-                    selectInput("contract", "Select contract types", choices = contracts, selected = "", multiple  = TRUE),
-                    "This app compares the effectiveness of two types of free trials, A (30-days) and B (100-days), at converting users into customers.",
-                    tags$img(src = "logo.png", width = "100%", height = "auto")),
+  # -----------------
+  # Tab 2: INSIDER ACTIVITY
+  # -----------------
+  tabPanel(
+    "Insider Activity",
+    
+    # Narrative (full width)
+    fluidRow(
+      column(
+        width = 12,
+        wellPanel(
+          h4("Story: Reading Between Buy/Sell Lines"),
+          p(HTML(
+            paste0(
+              "For example, <em>John Doe (CEO)</em> bought 5,000 AAPL shares on 2022-05-01 at $145.23—",
+              "right before prices climbed to $150.75 when <em>Jane Smith (CFO)</em> sold 2,000 AAPL on 2022-05-15. ",
+              "Tech insiders like <em>Bob Lee (VP)</em> bought MSFT in early 2023, while <em>Alice King (Director)</em> sold GOOG in late 2021. ",
+              "We’ll track how these decisions aligned with stock prices below."
+            )
+          ))
+        )
+      )
+    ),
+    div(style = "height: 20px;"),
+    
+    # Table on left, Price chart on right
+    fluidRow(
+      column(
+        width = 6,
+        wellPanel(
+          h5("Individual Insider Trades Table"),
+          DTOutput("table_insider_trades")
+        )
+      ),
+      column(
+        width = 6,
+        wellPanel(
+          h5("Stock Price with Trade Markers"),
+          plotlyOutput("price_chart", height = "350px")
+        )
+      )
+    ),
+    div(style = "height: 20px;"),
+    
+    # Buy vs Sell bar chart (full width)
+    fluidRow(
+      column(
+        width = 12,
+        wellPanel(
+          h5("Buy vs Sell Volume"),
+          plotlyOutput("bar_buy_sell", height = "300px")
+        )
+      )
+    ),
+    div(style = "height: 40px;"),
+    
+    # Footer text
+    div(
+      class = "footer-text",
+      p(
+        "Sources: insiderTrades.csv · stockPrices.csv",
+        style = "font-size: 12px; color: #777; text-align: center; margin-bottom: 20px;"
+      )
+    )
+  ),
   
-  # Layout non-sidebar elements
-  layout_columns(card(card_header("Conversions over time"),
-                      plotOutput("line")),
-                 card(card_header("Conversion rates"),
-                      plotOutput("bar")),
-                 value_box(title = "Recommended Trial",
-                           value = textOutput("recommended_eval"),
-                           theme_color = "secondary"),
-                 value_box(title = "Customers",
-                           value = textOutput("number_of_customers"),
-                           theme_color = "secondary"),
-                 value_box(title = "Avg Spend",
-                           value = textOutput("average_spend"),
-                           theme_color = "secondary"),
-                 card(card_header("Conversion rates by subgroup"),
-                      tableOutput("table")),
-                 col_widths = c(8, 4, 4, 4, 4, 12),
-                 row_heights = c(4, 1.5, 3))
-)
+  
+  # -----------------
+  # Tab 3: CONGRESS TRADES
+  # -----------------
+  tabPanel(
+    "Congress Trades",
+    
+    # Narrative (full width)
+    fluidRow(
+      column(
+        width = 12,
+        wellPanel(
+          h4("Story: Did Politicians Trade Ahead of Major Events?"),
+          p(HTML(
+            paste0(
+              "In early 2020, before the COVID-19 market drop, <em>Nancy Pelosi</em> bought 100 AAPL shares (02-01-2020). ",
+              "Soon after, <em>Richard Burr</em> sold 50 MSFT shares on 03-10-2020. ",
+              "By mid-2021, <em>Josh Hawley</em> bought GOOG (06-15-2021), while <em>Maxine Waters</em> sold AMZN (09-30-2021). ",
+              "In late 2022, <em>Pat Toomey</em> bought TSLA—suggesting ongoing political confidence in tech names."
+            )
+          ))
+        )
+      )
+    ),
+    div(style = "height: 20px;"),
+    
+    # Table and line chart side‐by‐side
+    fluidRow(
+      column(
+        width = 6,
+        wellPanel(
+          h5("Congress Insider Trades Table"),
+          DTOutput("table_congress_trades")
+        )
+      ),
+      column(
+        width = 6,
+        wellPanel(
+          h5("Congress Trades Per Year"),
+          plotlyOutput("line_congress_trades_per_year", height = "300px")
+        )
+      )
+    ),
+    div(style = "height: 40px;"),
+    
+    # Footer text
+    div(
+      class = "footer-text",
+      p(
+        "Sources: congressTrades.csv · STOCK Act Database",
+        style = "font-size: 12px; color: #777; text-align: center; margin-bottom: 20px;"
+      )
+    )
+  )
+) # end navbarPage
 
-# Define the Shiny server function
-server <- function(input, output) {
+
+# 4. Define Server
+server <- function(input, output, session) {
   
-  # Provide default values for industry, propensity, and contract selections
-  selected_industries <- reactive({
-    if (is.null(input$industry)) industries else input$industry
+  # — Tab 1: Trends —
+  output$bar_cases_by_year <- renderPlotly({
+    df_year <- insider_trades %>%
+      mutate(year = if_else(!is.na(Year), Year, year(as_date(Date)))) %>%
+      count(year) %>%
+      arrange(year)
+    
+    p <- ggplot(df_year, aes(x = factor(year), y = n)) +
+      geom_col(fill = "#2C3E50") +
+      labs(
+        x = "Year",
+        y = "Number of Trades"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11)
+      )
+    
+    ggplotly(p) %>%
+      layout(
+        margin = list(l = 50, r = 20, t = 20, b = 50),
+        xaxis = list(title = "Year"),
+        yaxis = list(title = "Trades")
+      )
   })
   
-  selected_propensities <- reactive({
-    if (is.null(input$propensity)) propensities else input$propensity
-  })
-  
-  selected_contracts <- reactive({
-    if (is.null(input$contract)) contracts else input$contract
-  })
-  
-  # Filter data against selections
-  filtered_expansions <- reactive({
-    expansions |>
-      filter(industry %in% selected_industries(),
-             propensity %in% selected_propensities(),
-             contract %in% selected_contracts())
-  })
-  
-  # Compute conversions by month
-  conversions <- reactive({
-    filtered_expansions() |>
-      mutate(date = floor_date(date, unit = "month")) |>
-      group_by(date, evaluation) |>
-      summarize(n = sum(outcome == "Won")) |>
+  output$line_cases_by_sector <- renderPlotly({
+    df_sector <- insider_trades %>%
+      mutate(year = if_else(!is.na(Year), Year, year(as_date(Date)))) %>%
+      group_by(year, Sector) %>%
+      tally(name = "count") %>%
       ungroup()
-  })
-  
-  # Retrieve conversion rates for selected groups
-  groups <- reactive({
-    expansion_groups |>
-      filter(industry %in% selected_industries(),
-             propensity %in% selected_propensities(),
-             contract %in% selected_contracts())
-  })
-  
-  # Render text for recommended trial
-  output$recommended_eval <- renderText({
-    recommendation <-
-      filtered_expansions() |>
-      group_by(evaluation) |>
-      summarise(rate = mean(outcome == "Won")) |>
-      filter(rate == max(rate)) |>
-      pull(evaluation)
     
-    as.character(recommendation[1])
-  })
-  
-  # Render text for number of customers
-  output$number_of_customers <- renderText({
-    sum(filtered_expansions()$outcome == "Won") |>
-      format(big.mark = ",")
-  })
-  
-  # Render text for average spend
-  output$average_spend <- renderText({
-    x <-
-      filtered_expansions() |>
-      filter(outcome == "Won") |>
-      summarise(spend = round(mean(amount))) |>
-      pull(spend)
+    p <- ggplot(df_sector, aes(x = year, y = count, color = Sector)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(
+        x = "Year",
+        y = "Number of Trades"
+      ) +
+      theme_minimal() +
+      theme(
+        legend.position = "bottom",
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        axis.title = element_text(size = 12)
+      )
     
-    str_glue("${x}")
+    ggplotly(p) %>%
+      layout(
+        margin = list(l = 50, r = 20, t = 20, b = 50),
+        xaxis = list(title = "Year"),
+        yaxis = list(title = "Trades")
+      )
   })
   
-  # Render line plot for conversions over time
-  output$line <- renderPlot({
-    ggplot(conversions(), aes(x = date, y = n, color = evaluation)) +
-      geom_line() +
-      theme(axis.title = element_blank()) +
-      labs(color = "Trial Type")
+  
+  # — Tab 2: Insider Activity —
+  output$table_insider_trades <- renderDT({
+    insider_trades %>%
+      select(Date, Ticker, Insider, Title, Trade_Type, Shares, Price, Sector, Year) %>%
+      arrange(desc(Date))
+  }, options = list(pageLength = 8, autoWidth = TRUE))
+  
+  output$price_chart <- renderPlotly({
+    df_plot <- insider_trades %>%
+      left_join(stock_prices, by = c("Date", "Ticker")) %>%
+      arrange(Date)
+    
+    p <- ggplot(df_plot, aes(x = as_date(Date), y = Close)) +
+      geom_line(color = "#7F8C8D") +
+      geom_point(aes(color = Trade_Type), size = 2) +
+      labs(
+        x = "Date",
+        y = "Close Price",
+        color = "Trade Type"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.title = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10)
+      )
+    
+    ggplotly(p) %>%
+      layout(
+        margin = list(l = 50, r = 20, t = 20, b = 50),
+        xaxis = list(title = "Date"),
+        yaxis = list(title = "Price")
+      )
   })
   
-  # Render bar plot for conversion rates by subgroup
-  output$bar <- renderPlot({
-    groups() |>
-      group_by(evaluation) |>
-      summarise(rate = round(sum(n * success_rate) / sum(n), 2)) |>
-      ggplot(aes(x = evaluation, y = rate, fill = evaluation)) +
-      geom_col() +
-      guides(fill = "none") +
-      theme(axis.title = element_blank()) +
-      scale_y_continuous(limits = c(0, 100))
+  output$bar_buy_sell <- renderPlotly({
+    df_bs <- insider_trades %>%
+      filter(Trade_Type %in% c("Buy", "Sell")) %>%
+      count(Trade_Type)
+    
+    p <- ggplot(df_bs, aes(x = Trade_Type, y = n, fill = Trade_Type)) +
+      geom_col(show.legend = FALSE) +
+      scale_fill_manual(values = c("Buy" = "#27AE60", "Sell" = "#C0392B")) +
+      labs(
+        x = "",
+        y = "Count"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text = element_text(size = 11),
+        axis.title = element_text(size = 12)
+      )
+    
+    ggplotly(p) %>%
+      layout(
+        margin = list(l = 50, r = 20, t = 20, b = 50),
+        xaxis = list(title = ""),
+        yaxis = list(title = "Count")
+      )
   })
   
-  # Render table for conversion rates by subgroup
-  output$table <- renderTable({
-    groups() |>
-      select(industry, propensity, contract, evaluation, success_rate) |>
-      pivot_wider(names_from = evaluation, values_from = success_rate)
-  },
-  digits = 0)
+  
+  # — Tab 3: Congress Trades —
+  output$table_congress_trades <- renderDT({
+    congress_trades %>%
+      select(Date, Member, Ticker, TransactionType, Shares, Value) %>%
+      arrange(desc(Date))
+  }, options = list(pageLength = 8, autoWidth = TRUE))
+  
+  output$line_congress_trades_per_year <- renderPlotly({
+    df_ctyr <- congress_trades %>%
+      mutate(year = year(as_date(Date))) %>%
+      count(year) %>%
+      arrange(year)
+    
+    p <- ggplot(df_ctyr, aes(x = year, y = n)) +
+      geom_line(color = "#E74C3C", size = 1) +
+      geom_point(color = "#E74C3C", size = 2) +
+      labs(
+        x = "Year",
+        y = "Number of Trades"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.title = element_text(size = 12)
+      )
+    
+    ggplotly(p) %>%
+      layout(
+        margin = list(l = 50, r = 20, t = 20, b = 50),
+        xaxis = list(title = "Year"),
+        yaxis = list(title = "Trades")
+      )
+  })
 }
 
-# Create the Shiny app
-shinyApp(ui = ui, server = server)
+# 5. Run the app
+shinyApp(ui, server)
+
+
