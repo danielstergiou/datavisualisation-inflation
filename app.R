@@ -1,7 +1,12 @@
-if (!require("plotly")) {
-  install.packages("plotly", repos = "https://cloud.r-project.org")
-  library(plotly)
+required_packages <- c("plotly", "shinythemes", "readr", "dplyr", "tidyr", "zoo")
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+    library(pkg, character.only = TRUE)
+  }
 }
+
 
 library(shiny)
 library(plotly)
