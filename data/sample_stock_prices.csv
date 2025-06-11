@@ -1,0 +1,4 @@
+Company,ScandalDate,Insider,30DayReturn,90DayReturn,BenchmarkReturn,ImpactNarrative
+Enron Corp,2001-10-22,Andy Fastow (CFO),–80% (approx),–99% (bankrupt):contentReference[oaicite:28]{index=28}:contentReference[oaicite:29]{index=29},S&P500 +2%,Total collapse; shareholders wiped out
+Martha Stewart Living Omnimedia,2003-06-04,Martha Stewart (CEO),–25%,–50%:contentReference[oaicite:30]{index=30},S&P500 +1%,Stock down ~70% during scandal:contentReference[oaicite:31]{index=31}
+Countrywide Financial,2007-08-01,Angelo Mozilo (CEO),–35%,–90%:contentReference[oaicite:32]{index=32}:contentReference[oaicite:33]{index=33},S&P500 –5%,Near ruin; fire-sold to BofA in 2008

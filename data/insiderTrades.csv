@@ -1,6 +1,0 @@
-Ticker,Date,Trade_Type,Insider,Title,Shares,Price,Sector,Year
-AAPL,2022-05-01,Buy,John Doe,CEO,5000,145.23,Technology,2022
-AAPL,2022-05-15,Sell,Jane Smith,CFO,2000,150.75,Technology,2022
-MSFT,2023-01-10,Buy,Bob Lee,VP,1000,245.10,Technology,2023
-GOOG,2021-11-12,Sell,Alice King,Director,1200,2850.00,Technology,2021
-JNJ,2020-04-03,Buy,Tom Harris,CEO,3000,132.50,Healthcare,2020

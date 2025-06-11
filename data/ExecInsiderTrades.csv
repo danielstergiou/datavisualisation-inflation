@@ -1,0 +1,4 @@
+Executive,Company,TradeDate,Stock,Type,Event,Return%,DaysBeforeEvent
+John Gamble (CFO),Equifax,2017-08-01,EFX,Sell,Data Breach Disclosure,–13%,37
+Roger Pomerantz (CEO),Seres Therapeutics,2016-07-27,MCRB,Sell,Phase-II Trial Failure,–70%,2
+Samuel Waksal (CEO),ImClone Systems,2001-12-27,IMCL,Sell,FDA Drug Rejection,–16%,1
