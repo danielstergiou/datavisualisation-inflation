@@ -13,7 +13,7 @@ rent <- read_csv("data/rentMovements.csv", skip = 1)
 education <- read_csv("data/educationMovements.csv", skip = 1)
 weightedcpi <- read_csv("data/weightedCpi.csv", skip = 1)
 
-prepare_timeseries_data <- function(data) {
+prepareData <- function(data) {
   data %>%
     select(Period = 1, Change = 2) %>%
     filter(!is.na(Change)) %>%
@@ -22,15 +22,15 @@ prepare_timeseries_data <- function(data) {
     mutate(Period = factor(Period, levels = unique(Period)))
 }
 
-groceries_long <- groceries %>%
+longGroceries <- groceries %>%
   rename(Category = ...1) %>%
-  pivot_longer(-Category, names_to = "Quarter_str", values_to = "PercentChange") %>%
+  pivot_longer(-Category, names_to = "quarterString", values_to = "PercentChange") %>%
   filter(!is.na(PercentChange)) %>%
   mutate(
-    Date = as.Date(as.yearqtr(sub(" .*", "", Quarter_str), format = "%b-%y"))
+    Date = as.Date(as.yearqtr(sub(" .*", "", quarterString), format = "%b-%y"))
   )
 
-app_css <- "
+appCSS <- "
   html, body { overflow: hidden; height: 100%; margin: 0; padding: 0; }
   .custom-sidebar { float: left; width: 30%; height: 85vh; padding: 20px; box-sizing: border-box; }
   .custom-main { float: left; width: 70%; height: 85vh; padding: 10px; box-sizing: border-box; }
@@ -45,7 +45,7 @@ ui <- navbarPage(
   title = "Australia's Inflation Story",
   theme = shinytheme("cosmo"),
   
-  tags$head(tags$style(HTML(app_css))),
+  tags$head(tags$style(HTML(appCSS))),
   
   footer = div(
     class = "footer",
@@ -92,7 +92,7 @@ ui <- navbarPage(
                p("Inflation is driven by price changes in both goods and services. The top chart shows a time-series of these changes."),
                hr(),
                p("We also feel inflation in essential costs. Select a category below to see its price trend."),
-               selectInput("essentials_category", "Choose an essential category:", choices = c("Rent", "Education"))
+               selectInput("essentialsCategory", "Choose an essential category:", choices = c("Rent", "Education"))
            ),
            div(class = "custom-main",
                plotlyOutput("goodsServicesBarPlot", height = "48%"),
@@ -113,8 +113,8 @@ ui <- navbarPage(
                em('"Cost of living pressure is not new, and it’s ongoing. Consumers will need to continue to respond to the high food prices in terms of their purchasing decisions."'),
                hr(),
                p("Select a food category to see how its price has changed over time compared to the overall cost of food."),
-               selectInput("grocery_category", "Choose a food category:",
-                           choices = unique(groceries_long$Category),
+               selectInput("groceryCategory", "Choose a food category:",
+                           choices = unique(longGroceries$Category),
                            selected = "Food and non-alcoholic beverages")
            ),
            div(class = "custom-main",
@@ -124,66 +124,66 @@ ui <- navbarPage(
 )
 
 server <- function(input, output, session) {
-  create_layout <- function(p, plot_title, y_title, x_title = "", show_legend = FALSE) {
+  createLayout <- function(p, plotTitle, yTitle, xTitle = "", showLegend = FALSE) {
     p %>% layout(
-      title = plot_title,
-      yaxis = list(title = y_title, showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 10)),
-      xaxis = list(title = x_title, showgrid = TRUE, zeroline = FALSE),
+      title = plotTitle,
+      yaxis = list(title = yTitle, showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 10)),
+      xaxis = list(title = xTitle, showgrid = TRUE, zeroline = FALSE),
       plot_bgcolor = 'rgba(245, 245, 245, 0.95)', 
       paper_bgcolor = 'rgba(0,0,0,0)',
       margin = list(l = 100, t = 50, b = 50), 
-      showlegend = show_legend,
+      showlegend = showLegend,
       legend = list(orientation = 'h', y = -0.2, x = 0.5, xanchor = 'center')
     )
   }
   output$cityCpiBarPlot <- renderPlotly({
-    plot_data <- citycpi %>%
+    plotData <- citycpi %>%
       head(1) %>%
       select(-1) %>%
       pivot_longer(everything(), names_to = "City", values_to = "Inflation") %>%
       mutate(Color = ifelse(City == "Weighted average of eight capital cities", "#d9534f", "#5bc0de")) %>%
       mutate(City = factor(City, levels = City[order(Inflation)]))
     
-    plot_ly(data = plot_data, y = ~City, x = ~Inflation, type = 'bar', orientation = 'h', marker = list(color = ~Color)) %>%
-      create_layout("Inflation by Capital City", y_title = "", x_title = "Most Recent Annual Inflation (%)")
+    plot_ly(data = plotData, y = ~City, x = ~Inflation, type = 'bar', orientation = 'h', marker = list(color = ~Color)) %>%
+      createLayout("Inflation by Capital City", yTitle = "", xTitle = "Most Recent Annual Inflation (%)")
   })
   output$cumulativeCpiPlot <- renderPlotly({
-    plot_data <- weightedcpi %>%
+    plotData <- weightedcpi %>%
       rename(Year = ...1) %>%
-      pivot_longer(-Year, names_to = "Quarter_str", values_to = "CPI_Index") %>%
-      filter(!is.na(CPI_Index)) %>%
-      mutate(Quarter = sub(" .*", "", Quarter_str)) %>%
+      pivot_longer(-Year, names_to = "quarterString", values_to = "cpiIndex") %>%
+      filter(!is.na(cpiIndex)) %>%
+      mutate(Quarter = sub(" .*", "", quarterString)) %>%
       mutate(Label = paste(Year, Quarter)) %>%
       mutate(Label = factor(Label, levels = unique(Label[order(Year, match(Quarter, c("March", "June", "September", "December")))]), ordered = TRUE))
-    
-    plot_ly(data = plot_data, x = ~Label, y = ~CPI_Index, type = 'scatter', mode = 'lines', line = list(color = "#d9534f", width = 3)) %>%
-      create_layout("Long-Term Consumer Price Index (CPI)", y_title = "CPI Index") %>%
+    plot_ly(data = plotData, x = ~Label, y = ~cpiIndex, type = 'scatter', mode = 'lines', line = list(color = "#d9534f", width = 3)) %>%
+      createLayout("Long-Term Consumer Price Index (CPI)", yTitle = "CPI Index") %>%
       layout(xaxis = list(showgrid = FALSE, tickangle = -45, nticks = 15))
   })
   output$goodsServicesBarPlot <- renderPlotly({
-    plot_data <- prepare_timeseries_data(goodsserv)
+    plotData <- prepareData(goodsserv)
     
-    plot_ly(data = plot_data, y = ~Period, x = ~Change, type = 'bar', orientation = 'h', marker = list(color = "#5bc0de")) %>%
-      create_layout("Goods Inflation (Time Series)", y_title = "", x_title = "Annual Change (%)")
+    plot_ly(data = plotData, y = ~Period, x = ~Change, type = 'bar', orientation = 'h', marker = list(color = "#5bc0de")) %>%
+      createLayout("Goods Inflation (Time Series)", yTitle = "", xTitle = "Annual Change (%)")
   })
   output$essentialsPlot <- renderPlotly({
-    if (input$essentials_category == "Rent") {
-      data_to_plot <- prepare_timeseries_data(rent)
-      plot_title <- "Annual Change in Rent"
+    if (input$essentialsCategory == "Rent") {
+      dataToPlot <- prepareData(rent)
+      plotTitle <- "Annual Change in Rent"
     } else {
-      data_to_plot <- prepare_timeseries_data(education)
-      plot_title <- "Annual Change in Education Costs"
+      dataToPlot <- prepareData(education)
+      plotTitle <- "Annual Change in Education Costs"
     }
-    plot_ly(data = data_to_plot, y = ~Period, x = ~Change, type = 'bar', orientation = 'h', marker = list(color = "#5bc0de")) %>%
-      create_layout(plot_title, y_title = "", x_title = "Annual Change (%)")
+    plot_ly(data = dataToPlot, y = ~Period, x = ~Change, type = 'bar', orientation = 'h', marker = list(color = "#5bc0de")) %>%
+      createLayout(plotTitle, yTitle = "", xTitle = "Annual Change (%)")
   })
-  
   output$groceryTimeSeriesPlot <- renderPlotly({
-    req(input$grocery_category)
-    plot_data <- groceries_long %>%
-      filter(Category %in% c(input$grocery_category, "Food and non-alcoholic beverages"))
-    plot_ly(data = plot_data, x = ~Date, y = ~PercentChange, color = ~Category, type = 'scatter', mode = 'lines+markers', colors = "Set1") %>%
-      create_layout("Annual Change in Grocery Prices", "Annual Change (%)", show_legend = TRUE) %>%
+    req(input$groceryCategory)
+    
+    plotData <- longGroceries %>%
+      filter(Category %in% c(input$groceryCategory, "Food and non-alcoholic beverages"))
+    
+    plot_ly(data = plotData, x = ~Date, y = ~PercentChange, color = ~Category, type = 'scatter', mode = 'lines+markers', colors = "Set1") %>%
+      createLayout("Annual Change in Grocery Prices", "Annual Change (%)", showLegend = TRUE) %>%
       layout(xaxis = list(type = 'date', tickformat = "%b-%Y", showgrid = FALSE))
   })
 }
