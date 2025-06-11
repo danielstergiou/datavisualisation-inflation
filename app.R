@@ -1,3 +1,8 @@
+if (!require("plotly")) {
+  install.packages("plotly", repos = "https://cloud.r-project.org")
+  library(plotly)
+}
+
 library(shiny)
 library(plotly)
 library(readr)
