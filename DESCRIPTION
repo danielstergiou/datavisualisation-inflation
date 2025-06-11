@@ -1,0 +1,9 @@
+Type: Shiny
+Imports:
+    shiny,
+    plotly,
+    readr,
+    dplyr,
+    tidyr,
+    shinythemes,
+    zoo
