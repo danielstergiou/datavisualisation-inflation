@@ -1,4 +1,13 @@
 Type: Shiny
+Package: InflationDashboard
+Title: Inflation Dashboard
+Version: 0.1.0
+Authors@R: 
+    person("Daniel", "Stergiou", email = "s4017698@student.rmit.edu.au", role = c("aut", "cre"))
+Description: Shiny application visualizing inflation data.
+License: MIT
+Encoding: UTF-8
+LazyData: true
 Imports:
     shiny,
     plotly,
@@ -7,3 +16,4 @@ Imports:
     tidyr,
     shinythemes,
     zoo
+
